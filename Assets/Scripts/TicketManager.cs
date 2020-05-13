@@ -5,16 +5,19 @@ using UnityEngine;
 public class TicketManager : MonoBehaviour {
     public List<GameObject> balls;
     private List<int> selectedBalls;
+    public DatabaseManager databaseManager;
+    public UIManager UImanager;
+    public Round round;
+    public int chip;
 
     void Start() {
         selectedBalls = new List<int>();
         selectedBalls.Clear();
+        selectedBalls.TrimExcess();
     }
 
     void OnApplicationQuit() {
-        foreach(int index in selectedBalls) {
-            selectedBalls.RemoveAt(selectedBalls.IndexOf(index));
-        }
+        deleteTicket();
     }
 
     public void pressed(GameObject ball) {
@@ -50,5 +53,46 @@ public class TicketManager : MonoBehaviour {
         }
 
         return index;
+    }
+
+    public void pushTicket() {
+        selectedBalls.TrimExcess();
+        if(selectedBalls.Count == 6) {
+            Ticket ticket = new Ticket();
+            ticket.RoundNumber = databaseManager.getLastRoundNumber() + 1;
+            ticket.Numbers = selectedBalls;
+            ticket.RoundNumber = round.RoundNumber;
+            ticket.Checked = -1;
+            ticket.Chip = chip;
+            databaseManager.pushTicket(ticket);
+
+            foreach(GameObject ball in balls) {
+                int index = getIndex(ball);
+
+                foreach(int selected in selectedBalls)
+                    if(selected == index) {
+                        ball.transform.localScale += new Vector3(0.2f, 0.2f, 0.2f);
+                    }
+            }
+
+            selectedBalls.Clear();
+            selectedBalls.TrimExcess();
+        } else {
+            UImanager.displayError1();
+        }
+    }
+
+    public void deleteTicket() {
+        foreach(GameObject ball in balls) {
+            int index = getIndex(ball);
+
+            foreach(int selected in selectedBalls)
+                if(selected == index) {
+                    ball.transform.localScale += new Vector3(0.2f, 0.2f, 0.2f);
+                }
+        }
+
+        selectedBalls.Clear();
+        selectedBalls.TrimExcess();
     }
 }

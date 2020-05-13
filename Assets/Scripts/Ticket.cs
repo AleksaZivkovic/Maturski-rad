@@ -8,4 +8,5 @@ public class Ticket : MonoBehaviour {
     public List<int> Numbers;
     public int Winning;
     public int Checked;
+    public int Chip;
 }

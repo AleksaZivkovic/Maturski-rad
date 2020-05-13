@@ -14,6 +14,10 @@ public class DatabaseManager : MonoBehaviour {
         connection = (IDbConnection)new SqliteConnection(connectionString);
     }
 
+    void LateUpdate() {
+        connection.Close();
+    }
+
     public Ticket getTicketByID(int id){
         Ticket ticket = new Ticket();
 
@@ -22,7 +26,7 @@ public class DatabaseManager : MonoBehaviour {
 
         string sqlQuery = "SELECT RoundNumber, FirstNumber, SecondNumber, ThirdNumber," +
                                 " FourthNumber, FifthNumber, SixthNumber," +
-                                " Winning, Checked FROM Tickets WHERE TicketID=" + id.ToString();
+                                " Winning, Checked, Chip FROM Tickets WHERE TicketID=" + id.ToString();
         command.CommandText = sqlQuery;
         IDataReader reader = command.ExecuteReader();
 
@@ -37,6 +41,7 @@ public class DatabaseManager : MonoBehaviour {
             ticket.Numbers.Add(reader.GetInt32(6));
             ticket.Winning = reader.GetInt32(7);
             ticket.Checked = reader.GetInt32(8);
+            ticket.Chip = reader.GetInt32(9);
         }
 
         reader.Close();
@@ -54,7 +59,7 @@ public class DatabaseManager : MonoBehaviour {
 
         string sqlQuery = "INSERT INTO Tickets (RoundNumber, FirstNumber, SecondNumber, ThirdNumber," +
                                 " FourthNumber, FifthNumber, SixthNumber," +
-                                " Winning, Checked) " +
+                                " Winning, Checked, Chip) " +
                                 "VALUES (" + ticket.RoundNumber.ToString() + "," +
                                              ticket.Numbers[0].ToString() + ", " +
                                              ticket.Numbers[1].ToString() + ", " +
@@ -63,7 +68,8 @@ public class DatabaseManager : MonoBehaviour {
                                              ticket.Numbers[4].ToString() + ", " +
                                              ticket.Numbers[5].ToString() + ", " +
                                              ticket.Winning.ToString() + ", " +
-                                             ticket.Checked.ToString() + ")";
+                                             ticket.Checked.ToString() + ", " +
+                                             ticket.Chip.ToString() + ")";
 
         command.CommandText = sqlQuery;
         command.ExecuteNonQuery();
@@ -141,7 +147,7 @@ public class DatabaseManager : MonoBehaviour {
 
             sqlQuery = "SELECT RoundNumber, FirstNumber, SecondNumber, ThirdNumber," +
                                 " FourthNumber, FifthNumber, SixthNumber," +
-                                " Winning, Checked FROM Tickets WHERE TicketID=" + id.ToString();
+                                " Winning, Checked, Chip FROM Tickets WHERE TicketID=" + id.ToString();
             command.CommandText = sqlQuery;
             reader = command.ExecuteReader();
 
@@ -156,6 +162,7 @@ public class DatabaseManager : MonoBehaviour {
                 ticket.Numbers.Add(reader.GetInt32(6));
                 ticket.Winning = reader.GetInt32(7);
                 ticket.Checked = reader.GetInt32(8);
+                ticket.Chip = reader.GetInt32(9);
             }
 
             reader.Close();
@@ -186,6 +193,7 @@ public class DatabaseManager : MonoBehaviour {
                                              "SixthNumber=" + ticket.Numbers[5].ToString() + ", " +
                                              "Checked=" + ticket.Checked.ToString() + ", " +
                                              "Winning=" + ticket.Winning.ToString() + ", " +
+                                             "Chip=" + ticket.Chip.ToString() + ", " +
                                              "WHERE TicketID=" + ticket.TicketID.ToString();
 
         command.CommandText = sqlQuery;
@@ -194,6 +202,35 @@ public class DatabaseManager : MonoBehaviour {
         command.Dispose();
         command = null;
         connection.Close();
+    }
+
+    public int getLastRoundNumber() {
+        int roundNumber = 0;
+
+        connection.Open();
+        command = connection.CreateCommand();
+
+        string sqlQuery = "SELECT RoundNumber FROM Rounds";
+        command.CommandText = sqlQuery;
+        IDataReader reader = command.ExecuteReader();
+
+        while(reader.Read()) {
+            int temp = stringToInt(reader.GetString(0));
+
+            Debug.Log(temp);
+
+            if(temp > roundNumber) {
+                roundNumber = temp;
+            }
+        }
+
+        reader.Close();
+        reader = null;
+        command.Dispose();
+        command = null;
+        connection.Close();
+
+        return roundNumber;
     }
 
     public Ticket checkTicket(Ticket ticket) {
