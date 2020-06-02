@@ -7,8 +7,8 @@ public class TicketManager : MonoBehaviour {
     private List<int> selectedBalls;
     public DatabaseManager databaseManager;
     public UIManager UImanager;
+    public CreditManager creditManager;
     public Round round;
-    public int chip;
 
     void Start() {
         selectedBalls = new List<int>();
@@ -59,11 +59,17 @@ public class TicketManager : MonoBehaviour {
         selectedBalls.TrimExcess();
         if(selectedBalls.Count == 6) {
             Ticket ticket = new Ticket();
-            ticket.RoundNumber = databaseManager.getLastRoundNumber() + 1;
-            ticket.Numbers = selectedBalls;
             ticket.RoundNumber = round.RoundNumber;
+            ticket.Numbers = selectedBalls;
             ticket.Checked = -1;
-            ticket.Chip = chip;
+
+            if(creditManager.credit > 0) {
+                ticket.Chip = creditManager.credit;
+            } else {
+                UImanager.displayError2();
+                return;
+            }
+
             databaseManager.pushTicket(ticket);
 
             foreach(GameObject ball in balls) {
@@ -77,6 +83,7 @@ public class TicketManager : MonoBehaviour {
 
             selectedBalls.Clear();
             selectedBalls.TrimExcess();
+            UImanager.displayTicketID(databaseManager.getLastTicketID());
         } else {
             UImanager.displayError1();
         }
@@ -94,5 +101,9 @@ public class TicketManager : MonoBehaviour {
 
         selectedBalls.Clear();
         selectedBalls.TrimExcess();
+    }
+
+    public void checkTicket() {
+        databaseManager.checkTicketByID(creditManager.credit);
     }
 }

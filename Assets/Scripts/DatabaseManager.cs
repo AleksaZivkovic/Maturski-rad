@@ -8,19 +8,24 @@ using System.IO;
 public class DatabaseManager : MonoBehaviour {
     IDbConnection connection;
     IDbCommand command;
+    public Round round;
+    public UIManager uiManager;
 
     void Start() {
         string connectionString = "URI=file:" + Application.dataPath + "/Databases/WinAndGo.s3db";
         connection = (IDbConnection)new SqliteConnection(connectionString);
     }
 
-    void LateUpdate() {
+    public void CloseConnection() {
         connection.Close();
+        connection.Dispose();
+        connection = null;
     }
 
     public Ticket getTicketByID(int id){
         Ticket ticket = new Ticket();
 
+        connection.Close();
         connection.Open();
         command = connection.CreateCommand();
 
@@ -54,6 +59,7 @@ public class DatabaseManager : MonoBehaviour {
     }
 
     public void pushTicket(Ticket ticket) {
+        connection.Close();
         connection.Open();
         command = connection.CreateCommand();
 
@@ -80,6 +86,7 @@ public class DatabaseManager : MonoBehaviour {
     }
 
     public void pushRound(List<int> numbers, List<int> stars, List<int> jackpot) {
+        connection.Close();
         connection.Open();
         command = connection.CreateCommand();
 
@@ -87,10 +94,16 @@ public class DatabaseManager : MonoBehaviour {
         string starsStr = listToString(stars);
         string jackpotsStr = listToString(jackpot);
 
-        string sqlQuery = "INSERT INTO Rounds (Numbers, Stars)" +
-                          "VALUES ('" + numbersStr + "', '" +
-                                       starsStr +  "')";
+        string sqlQuery = "INSERT INTO Rounds (RoundNumber, Numbers, Stars, Jackpot)" +
+                          "VALUES ('" + round.RoundNumber.ToString() + "', " +
+                                   "'" + numbersStr + "', " +
+                                   "'" + starsStr +  "', " +
+                                   "'" + jackpotsStr + "')";
 
+        command.CommandText = sqlQuery;
+        command.ExecuteNonQuery();
+
+        sqlQuery = "UPDATE RoundNumbers SET Finished=1 WHERE Finished='-1'";
         command.CommandText = sqlQuery;
         command.ExecuteNonQuery();
 
@@ -100,19 +113,21 @@ public class DatabaseManager : MonoBehaviour {
     }
 
     public Round getRoundByNumber(int roundNumber) {
-        Round round = new Round();
+        Round ticketRound = new Round();
 
+        connection.Close();
         connection.Open();
         command = connection.CreateCommand();
 
-        string sqlQuery = "SELECT Numbers, Stars FROM Rounds WHERE RoundNumber=" + roundNumber.ToString();
+        string sqlQuery = "SELECT Numbers, Stars, Jackpot FROM Rounds WHERE RoundNumber=" + roundNumber.ToString();
         command.CommandText = sqlQuery;
         IDataReader reader = command.ExecuteReader();
 
         while(reader.Read()) {
-            round.RoundNumber = roundNumber;
-            round.Numbers = stringToList(reader.GetString(0));
-            round.Stars = stringToList(reader.GetString(1));
+            ticketRound.RoundNumber = roundNumber;
+            ticketRound.Numbers = stringToList(reader.GetString(0));
+            ticketRound.Stars = stringToList(reader.GetString(1));
+            ticketRound.Jackpots = stringToList(reader.GetString(2));
         }
 
         reader.Close();
@@ -121,13 +136,14 @@ public class DatabaseManager : MonoBehaviour {
         command = null;
         connection.Close();
 
-        return round;
+        return ticketRound;
     }
 
     public List<Ticket> getTicketsByRound(int roundNumber) {
         List<Ticket> tickets = new List<Ticket>();
         List<int> ids = new List<int>();
 
+        connection.Close();
         connection.Open();
         command = connection.CreateCommand();
 
@@ -181,6 +197,7 @@ public class DatabaseManager : MonoBehaviour {
     }
 
     public void updateTicket(Ticket ticket) {
+        connection.Close();
         connection.Open();
         command = connection.CreateCommand();
 
@@ -193,7 +210,7 @@ public class DatabaseManager : MonoBehaviour {
                                              "SixthNumber=" + ticket.Numbers[5].ToString() + ", " +
                                              "Checked=" + ticket.Checked.ToString() + ", " +
                                              "Winning=" + ticket.Winning.ToString() + ", " +
-                                             "Chip=" + ticket.Chip.ToString() + ", " +
+                                             "Chip=" + ticket.Chip.ToString() + " " +
                                              "WHERE TicketID=" + ticket.TicketID.ToString();
 
         command.CommandText = sqlQuery;
@@ -205,23 +222,64 @@ public class DatabaseManager : MonoBehaviour {
     }
 
     public int getLastRoundNumber() {
-        int roundNumber = 0;
+        int round = -1;
 
+        connection.Close();
         connection.Open();
         command = connection.CreateCommand();
 
-        string sqlQuery = "SELECT RoundNumber FROM Rounds";
+        string sqlQuery = "SELECT RoundNumber FROM RoundNumbers where Finished=-1";
         command.CommandText = sqlQuery;
         IDataReader reader = command.ExecuteReader();
 
         while(reader.Read()) {
-            int temp = stringToInt(reader.GetString(0));
+            round = reader.GetInt32(0);
+        }
+        reader.Close();
+        reader = null;
 
-            Debug.Log(temp);
+        if(round == -1) {
+            sqlQuery = "INSERT INTO RoundNumbers (Finished) VALUES ('-1')";
 
-            if(temp > roundNumber) {
-                roundNumber = temp;
+            command.CommandText = sqlQuery;
+            command.ExecuteNonQuery();
+            command.Dispose();
+
+            IDbCommand command2 = connection.CreateCommand();
+            sqlQuery = "SELECT RoundNumber FROM RoundNumbers where Finished=-1";
+            command2.CommandText = sqlQuery;
+            IDataReader reader2 = command2.ExecuteReader();
+
+            while(reader2.Read()) {
+                round = reader2.GetInt32(0);
             }
+
+            reader2.Close();
+            reader2 = null;
+            command2.Dispose();
+            command2 = null;
+        }
+
+        command.Dispose();
+        command = null;
+        connection.Close();
+
+        return round;
+    }
+
+    public int getLastTicketID() {
+        int id = 0;
+
+        connection.Close();
+        connection.Open();
+        command = connection.CreateCommand();
+
+        string sqlQuery = "SELECT TicketID FROM Tickets";
+        command.CommandText = sqlQuery;
+        IDataReader reader = command.ExecuteReader();
+
+        while(reader.Read()) {
+            id = reader.GetInt32(0);
         }
 
         reader.Close();
@@ -230,29 +288,74 @@ public class DatabaseManager : MonoBehaviour {
         command = null;
         connection.Close();
 
-        return roundNumber;
+        return id;
+    }
+
+    public void checkTicketByID(int id) {
+        Ticket ticket = getTicketByID(id);
+
+        if(ticket.Checked == 1) {
+            uiManager.displayCheckedTicket();
+            return;
+        }
+
+        Ticket newTicket = checkTicket(ticket);
+
+        updateTicket(newTicket);
+
+        if(newTicket.Winning == 1) {
+            uiManager.displayWinningTicket();
+        } else {
+            uiManager.displayLostTicket();
+        }
     }
 
     public Ticket checkTicket(Ticket ticket) {
         int winning = 1;
-        Round round = getRoundByNumber(ticket.RoundNumber);
+        int stars = 0;
+        int jackpot = 0;
+        Round ticketRound = getRoundByNumber(ticket.RoundNumber);
 
         for(int i = 0; i < 6; i++) {
-            if(!isInList(ticket.Numbers[i], round.Numbers)) {
+            if(!isInList(ticket.Numbers[i], ticketRound.Numbers)) {
+                Debug.Log(3);
                 winning = -1;
             }
         }
 
+        for(int i = 0; i < 6; i++) {
+            if(isInList(ticket.Numbers[i], ticketRound.Stars)) {
+                stars++;
+            }
+        }
+
+        for(int i = 0; i < 6; i++) {
+            if(isInList(ticket.Numbers[i], ticketRound.Jackpots)) {
+                jackpot++;
+            }
+        }
+
         ticket.Checked = 1;
+
+        if(jackpot == 5) {
+            winning = 1;
+        }
+
+        if(stars > 0) {
+            winning = 1;
+        }
+
         ticket.Winning = winning;
 
         return ticket;
     }
 
     public bool isInList(int number, List<int> list) {
+        Debug.Log("#");
         bool itIs = false;
 
         foreach(int i in list) {
+            Debug.Log(".");
             if(number == i) {
                 itIs = true;
             }
@@ -280,6 +383,7 @@ public class DatabaseManager : MonoBehaviour {
             if(str[i] == ',') {
                 list.Add(stringToInt(temp));
                 temp = "";
+                i++;
             } else {
                 temp += str[i];
             }

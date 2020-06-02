@@ -4,6 +4,7 @@ using UnityEngine;
 
 public class Round : MonoBehaviour {
     public int RoundNumber;
-    public List<int> Numbers;
-    public List<int> Stars;
+    public List<int> Numbers = new List<int>();
+    public List<int> Stars = new List<int>();
+    public List<int> Jackpots = new List<int>();
 }
